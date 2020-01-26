@@ -70,6 +70,7 @@ variable "monitoring" {
 variable "vpc_security_group_ids" {
   description = "A list of security group IDs to associate with"
   type        = list(string)
+  default     = null
 }
 
 variable "subnet_id" {
@@ -87,13 +88,13 @@ variable "subnet_ids" {
 variable "associate_public_ip_address" {
   description = "If true, the EC2 instance will have associated public IP address"
   type        = bool
-  default     = false
+  default     = null
 }
 
 variable "private_ip" {
   description = "Private IP address to associate with the instance in a VPC"
   type        = string
-  default     = ""
+  default     = null
 }
 
 variable "private_ips" {
@@ -109,9 +110,15 @@ variable "source_dest_check" {
 }
 
 variable "user_data" {
-  description = "The user data to provide when launching the instance"
+  description = "The user data to provide when launching the instance. Do not pass gzip-compressed data via this argument; see user_data_base64 instead."
   type        = string
-  default     = ""
+  default     = null
+}
+
+variable "user_data_base64" {
+  description = "Can be used instead of user_data to pass base64-encoded binary data directly. Use this instead of user_data whenever the value is not a valid UTF-8 string. For example, gzip-encoded user data must be base64-encoded and passed via this argument to avoid corruption."
+  type        = string
+  default     = null
 }
 
 variable "iam_instance_profile" {
@@ -123,13 +130,13 @@ variable "iam_instance_profile" {
 variable "ipv6_address_count" {
   description = "A number of IPv6 addresses to associate with the primary network interface. Amazon EC2 chooses the IPv6 addresses from the range of your subnet."
   type        = number
-  default     = 0
+  default     = null
 }
 
 variable "ipv6_addresses" {
   description = "Specify one or more IPv6 addresses from the range of the subnet to associate with the primary network interface"
   type        = list(string)
-  default     = []
+  default     = null
 }
 
 variable "tags" {

@@ -2,16 +2,14 @@ locals {
   is_t_instance_type = replace(var.instance_type, "/^t[23]{1}\\..*$/", "1") == "1" ? true : false
 }
 
-######
-# Note: network_interface can't be specified together with associate_public_ip_address
-######
 resource "aws_instance" "this" {
   count = var.instance_count
 
-  ami           = var.ami
-  instance_type = var.instance_type
-  user_data     = var.user_data
-  subnet_id = element(
+  ami              = var.ami
+  instance_type    = var.instance_type
+  user_data        = var.user_data
+  user_data_base64 = var.user_data_base64
+  subnet_id = length(var.network_interface) > 0 ? null : element(
     distinct(compact(concat([var.subnet_id], var.subnet_ids))),
     count.index,
   )
@@ -32,7 +30,9 @@ resource "aws_instance" "this" {
     for_each = var.root_block_device
     content {
       delete_on_termination = lookup(root_block_device.value, "delete_on_termination", null)
+      encrypted             = lookup(root_block_device.value, "encrypted", null)
       iops                  = lookup(root_block_device.value, "iops", null)
+      kms_key_id            = lookup(root_block_device.value, "kms_key_id", null)
       volume_size           = lookup(root_block_device.value, "volume_size", null)
       volume_type           = lookup(root_block_device.value, "volume_type", null)
     }
@@ -45,6 +45,7 @@ resource "aws_instance" "this" {
       device_name           = ebs_block_device.value.device_name
       encrypted             = lookup(ebs_block_device.value, "encrypted", null)
       iops                  = lookup(ebs_block_device.value, "iops", null)
+      kms_key_id            = lookup(ebs_block_device.value, "kms_key_id", null)
       snapshot_id           = lookup(ebs_block_device.value, "snapshot_id", null)
       volume_size           = lookup(ebs_block_device.value, "volume_size", null)
       volume_type           = lookup(ebs_block_device.value, "volume_type", null)
@@ -60,7 +61,16 @@ resource "aws_instance" "this" {
     }
   }
 
-  source_dest_check                    = var.source_dest_check
+  dynamic "network_interface" {
+    for_each = var.network_interface
+    content {
+      device_index          = network_interface.value.device_index
+      network_interface_id  = lookup(network_interface.value, "network_interface_id", null)
+      delete_on_termination = lookup(network_interface.value, "delete_on_termination", false)
+    }
+  }
+
+  source_dest_check                    = length(var.network_interface) > 0 ? null : var.source_dest_check
   disable_api_termination              = var.disable_api_termination
   instance_initiated_shutdown_behavior = var.instance_initiated_shutdown_behavior
   placement_group                      = var.placement_group
@@ -82,15 +92,5 @@ resource "aws_instance" "this" {
 
   credit_specification {
     cpu_credits = local.is_t_instance_type ? var.cpu_credits : null
-  }
-
-  lifecycle {
-    # Due to several known issues in Terraform AWS provider related to arguments of aws_instance:
-    # (eg, https://github.com/terraform-providers/terraform-provider-aws/issues/2036)
-    # we have to ignore changes in the following arguments
-    ignore_changes = [
-      root_block_device,
-      ebs_block_device,
-    ]
   }
 }
